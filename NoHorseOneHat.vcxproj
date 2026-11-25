@@ -10,8 +10,8 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
-
   <ItemGroup>
+    <ClCompile Include="src\NHA.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\script.cpp" />
     <ClCompile Include="src\keyboard.cpp" />
@@ -20,8 +20,8 @@
     <ClCompile Include="src\paths.cpp" />
     <ClCompile Include="src\ui.cpp" />
   </ItemGroup>
-
   <ItemGroup>
+    <ClInclude Include="src\NHA.h" />
     <ClInclude Include="src\script.h" />
     <ClInclude Include="src\keyboard.h" />
     <ClInclude Include="src\log.h" />
@@ -37,7 +37,6 @@
     <ClInclude Include="inc\enums.h" />
     <ClInclude Include="inc\main.h" />
   </ItemGroup>
-
   <PropertyGroup Label="Globals">
     <ProjectGuid>{89F5C78F-76B1-4BF4-8F8D-5C418329C52D}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
@@ -45,41 +44,32 @@
     <ProjectName>NoHorseOneHat</ProjectName>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
-
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-
   <PropertyGroup Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
   </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)'=='Release'" Label="Configuration">
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
-
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-
   <PropertyGroup Label="UserMacros">
     <RDR2GameDir>C:\Program Files\Epic Games\RedDeadRedemption2</RDR2GameDir>
   </PropertyGroup>
-
   <PropertyGroup>
     <LinkIncremental Condition="'$(Configuration)'=='Release'">false</LinkIncremental>
     <TargetExt>.asi</TargetExt>
     <OutDir>bin\$(Configuration)\</OutDir>
     <IntDir>tmp\$(Configuration)\</IntDir>
   </PropertyGroup>
-
   <ItemDefinitionGroup>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -103,7 +93,6 @@
       <Message Condition="'$(RDR2GameDir)' != ''">Deploying $(TargetFileName) and content to $(RDR2GameDir)</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
-
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
@@ -114,7 +103,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
@@ -129,6 +117,5 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
   </ItemDefinitionGroup>
-
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

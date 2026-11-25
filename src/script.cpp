@@ -2,6 +2,7 @@
 #include "keyboard.h"
 #include "log.h"
 #include "config.h"
+#include "NHA.h";
 
 #include <format>
 
@@ -12,7 +13,13 @@ namespace
 
 	void OnTick()
 	{
-		//Mod shit here
+		
+		int now = MISC::GET_GAME_TIMER();
+
+		if (g_config.HideThatHorse) {
+			NHA::HideThatHorse(now);
+			NHA::HideThatBlip();
+		}
 	}
 }
 
