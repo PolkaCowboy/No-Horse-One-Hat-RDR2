@@ -1,6 +1,8 @@
 #include "hat.h"
 #include "paths.h"
 #include "log.h"
+#include "keyboard.h"
+#include "ui.h"
 #include "../inc/SimpleIni.h"
 
 #include <cmath>
@@ -188,6 +190,41 @@ namespace {
 		MAP::SET_BLIP_COORDS(hatBlip, theHat.LostLocation.x, theHat.LostLocation.y, theHat.LostLocation.z);
 	}
 
+	/* Offer to make a new hat the tracked hat */ 
+	constexpr DWORD ACCEPT_NEW_HAT_KEY = 'O';
+	constexpr int ACCEPT_HOLD_MS = 2000;
+	Hash offeredCandidateHash = 0;
+
+	int acceptKeyHeldSince = 0;
+	int nextPromptTime = 0;
+
+	void OfferNewPrimaryHat(Hash candidateHash, int now) {
+		if (candidateHash != offeredCandidateHash) {
+			offeredCandidateHash = candidateHash;
+			acceptKeyHeldSince = 0;
+			UI::ShowHelpText("Hold O to save as your hat", 3000);
+		}
+
+		if (IsKeyDown(ACCEPT_NEW_HAT_KEY)) {
+			if (acceptKeyHeldSince == 0) {
+				acceptKeyHeldSince = now;
+			}
+			else if (now - acceptKeyHeldSince >= ACCEPT_HOLD_MS) {
+				theHat.hatHash = candidateHash;
+				theHat.onHead = TRUE;
+				remadeHat = 0;
+				remadeHatBeingHeld = true;
+				acceptKeyHeldSince = 0;
+				offeredCandidateHash = 0;
+				UI::DisplaySubtitle("New hat saved");
+				Log::Write(std::format("Hat: new primary hat accepted (hash 0x{:08X})", candidateHash));
+			}
+		}
+		else {
+			acceptKeyHeldSince = 0;
+		}
+	}
+
 }
 
 
@@ -246,15 +283,26 @@ void Hat::WatchThatHat(int now) {
 
 	Hash hatOnHeadHash = GetCurrentHat(player);
 
+	if (hatOnHeadHash == 0) {
+		acceptKeyHeldSince = 0;
+	}
+
 	if (hatOnHeadHash != 0) {
-		//A new hat touches the beacon. (Or they same old hat)
-		if (!theHat.onHead) {
-			Log::Write(std::format("Hat: detected on head (hash 0x{:08X}), not via remake", hatOnHeadHash));
+		//A new hat touches the beacon. (Or the same old hat)
+		if (theHat.hatHash == 0 || hatOnHeadHash == theHat.hatHash) {
+			if (!theHat.onHead) {
+				Log::Write(std::format("Hat: detected on head (hash 0x{:08X}), not via remake", hatOnHeadHash));
+			}
+			theHat.hatHash = hatOnHeadHash;
+			theHat.onHead = TRUE;
+			remadeHat = 0;
+			remadeHatBeingHeld = true;
+			acceptKeyHeldSince = 0;
 		}
-		theHat.hatHash = hatOnHeadHash;
-		theHat.onHead = TRUE;
-		remadeHat = 0;
-		remadeHatBeingHeld = true;
+		else {
+			OfferNewPrimaryHat(hatOnHeadHash, now);
+		}
+		
 	}
 	else if (theHat.hatHash != 0) {
 		if (RemadeHatObjectExists()) {
