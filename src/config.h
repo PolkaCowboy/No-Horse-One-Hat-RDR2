@@ -16,7 +16,7 @@ struct ModConfig
 	bool enabled = true;
 	DWORD toggleKey = VK_F19;
 	*/
-	bool enableTextLogging = true;
+	bool enableTextLogging = false;
 
 };
 

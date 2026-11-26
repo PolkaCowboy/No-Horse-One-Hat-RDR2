@@ -22,6 +22,9 @@ namespace {
 	int nextHatPeek = 0;
 	int remakeNextAttemptAfter = 0;
 
+	Blip hatBlip = 0;
+	Vector3 hatBlipCoords{};
+
 	//Rebuild lost hats by equipping a new copy, bumping it off and moving it to the saved lost location.
 	enum class RemakeStep { Equip, KnockOff, Catch };
 	bool remakingHat = false;
@@ -165,7 +168,24 @@ namespace {
 			ENTITY::SET_ENTITY_AS_NO_LONGER_NEEDED(&releasedHat);
 			remadeHatBeingHeld = false;
 		}
+	}
 
+	void HandleHatBlip() {
+		if (theHat.onHead || theHat.hatHash == 0) {
+			if (hatBlip && MAP::DOES_BLIP_EXIST(hatBlip)) {
+				MAP::REMOVE_BLIP(&hatBlip);
+			}
+			hatBlip = 0;
+			return;
+		}
+
+		if (!hatBlip || !MAP::DOES_BLIP_EXIST(hatBlip)) {
+			hatBlip = MAP::BLIP_ADD_FOR_COORDS(MISC::GET_HASH_KEY("BLIP_STYLE_PLAYER_HAT_BLIP"), theHat.LostLocation.x, theHat.LostLocation.y, theHat.LostLocation.z);
+			MAP::BLIP_ADD_MODIFIER(hatBlip, MISC::GET_HASH_KEY("BLIP_MODIFIER_RADAR_EDGE_ALWAYS"));
+			return;
+		}
+
+		MAP::SET_BLIP_COORDS(hatBlip, theHat.LostLocation.x, theHat.LostLocation.y, theHat.LostLocation.z);
 	}
 
 }
@@ -253,5 +273,6 @@ void Hat::WatchThatHat(int now) {
 		}
 	}
 
+	HandleHatBlip();
 	Hat::Save();
 };
