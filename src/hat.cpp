@@ -1,5 +1,6 @@
 #include "hat.h"
 #include "paths.h"
+#include "log.h"
 #include "../inc/SimpleIni.h"
 
 #include <cmath>
@@ -9,8 +10,21 @@
 #include <string>
 
 namespace {
-	constexpr int WATCH_INTERVAL_MS = 5000;
+	constexpr int WATCH_INTERVAL_MS = 400;
+	constexpr int EQUIP_CONFIRM_TIMEOUT_MS = 1500;
+	constexpr int CATCH_TIMEOUT_MS = 250;
+	constexpr int REMAKE_RETRY_AFTER_MS = 1500;
+
 	int nextHatPeek = 0;
+	int remakeNextAttemptAfter = 0;
+
+	//Rebuild lost hats by equipping a new copy, bumping it off and moving it to the saved lost location.
+	enum class RemakeStep { Equip, KnockOff, Catch };
+	bool remakingHat = false;
+	RemakeStep remakeStep = RemakeStep::Equip;
+	int remakeStepStartTime = 0;
+	Object remadeHat = 0;
+	Object prevDroppedHat = 0;
 
 	struct HatData {
 		bool onHead = false;
@@ -36,7 +50,9 @@ namespace {
 				continue;
 			}
 
-			return PED::_GET_SHOP_ITEM_COMPONENT_AT_INDEX(ped, i, FALSE, FALSE, 0);
+			BOOL statusFlag = FALSE;
+			Hash wearableState = 0;
+			return PED::_GET_SHOP_ITEM_COMPONENT_AT_INDEX(ped, i, FALSE, &statusFlag, &wearableState);
 		}
 		return 0;
 	}
@@ -44,6 +60,81 @@ namespace {
 	void SetHatPosition(Entity hat) {
 		theHat.LostLocation = ENTITY::GET_ENTITY_COORDS(hat, TRUE, FALSE);
 		theHat.LostRotation = ENTITY::GET_ENTITY_ROTATION(hat, 2);
+	}
+
+	bool RemadeHatObjectExists() {
+		return remadeHat != 0 && ENTITY::DOES_ENTITY_EXIST(remadeHat);
+	}
+
+	bool EquipConfirmedOrTimedOut(Ped player, Hash wantedHat, int stepStartTime, int now) {
+		Hash currentHat = GetCurrentHat(player);
+
+		if (currentHat != wantedHat) {
+			return false;
+		}
+
+		if (PED::IS_PED_READY_TO_RENDER(player)) {
+			return true;
+		}
+
+		if ((now - stepStartTime) > EQUIP_CONFIRM_TIMEOUT_MS) {
+			return true;
+		}
+
+		return false; // Still waiting
+	}
+
+	void StartRemakingHat(int now) {
+		remakingHat = true;
+		remakeStep = RemakeStep::Equip;
+		remakeStepStartTime = now;
+		Log::Write("StartRemakingHat() Invoked");
+	}
+
+	void PlaceRemadeHat(Object hat) {
+		ENTITY::SET_ENTITY_AS_MISSION_ENTITY(hat, TRUE, FALSE);
+		ENTITY::SET_ENTITY_COORDS(hat, theHat.LostLocation.x, theHat.LostLocation.y, theHat.LostLocation.z + .05f, FALSE, FALSE, FALSE, FALSE);
+		ENTITY::SET_ENTITY_ROTATION(hat, theHat.LostRotation.x, theHat.LostRotation.y, theHat.LostRotation.z, 2, TRUE);
+		//Unfreeze later when player is close.
+		ENTITY::FREEZE_ENTITY_POSITION(hat, TRUE);
+	}
+
+	void AttemptRemake(Ped player, int now) {
+		switch (remakeStep) {
+		case RemakeStep::Equip:
+			PED::_APPLY_SHOP_ITEM_TO_PED(player, theHat.hatHash, TRUE, FALSE, FALSE);
+			PED::_UPDATE_PED_VARIATION(player, FALSE, TRUE, TRUE, TRUE, FALSE);
+			remakeStep = RemakeStep::KnockOff;
+			remakeStepStartTime = now;
+			return;
+
+		case RemakeStep::KnockOff:
+			if (!EquipConfirmedOrTimedOut(player, theHat.hatHash, remakeStepStartTime, now)) {
+				return;
+			}
+			Log::Write("hat.cpp: Attempting knock off");
+			prevDroppedHat = PED::_GET_PED_LAST_DROPPED_HAT(player);
+			PED::KNOCK_OFF_PED_PROP(player, FALSE, TRUE, FALSE, TRUE);
+			remakeStep = RemakeStep::Catch;
+			remakeStepStartTime = now;
+			return;
+
+		case RemakeStep::Catch:
+			Object dropped = PED::_GET_PED_LAST_DROPPED_HAT(player);
+			if (!dropped || dropped == prevDroppedHat || !ENTITY::DOES_ENTITY_EXIST(dropped)) {
+				if (now - remakeStepStartTime > CATCH_TIMEOUT_MS) {
+					remakingHat = false;
+					remakeNextAttemptAfter = now + REMAKE_RETRY_AFTER_MS;
+					Log::Write("Hat.cpp: Remake attempt failed. Trying again later");
+				}
+				return;
+			}
+			remadeHat = dropped;
+			PlaceRemadeHat(remadeHat);
+			remakingHat = false;
+			Log::Write("hat.cpp: Remade hat caught and placed");
+			return;
+		}
 	}
 
 }
@@ -83,18 +174,31 @@ void Hat::Save() {
 }
 
 void Hat::WatchThatHat(int now) {
-	if (now < nextHatPeek) {
+
+	Ped player = PLAYER::PLAYER_PED_ID();
+	if (remakingHat) {
+		if (ENTITY::IS_ENTITY_DEAD(player)) {
+			remakingHat = false;
+			remakeNextAttemptAfter = now + REMAKE_RETRY_AFTER_MS;
+			Log::Write("hat.cpp: Dead player mid remake: Aborting.");
+			return;
+		}
+		AttemptRemake(player, now);
 		return;
 	}
 
-	Ped player = PLAYER::PLAYER_PED_ID();
-
+	if (now < nextHatPeek) {
+		return;
+	}
 	nextHatPeek = now + WATCH_INTERVAL_MS;
 
 	Hash hatOnHeadHash = GetCurrentHat(player);
 
 	if (hatOnHeadHash != 0) {
 		//A new hat touches the beacon. (Or they same old hat)
+		if (!theHat.onHead) {
+			Log::Write(std::format("Hat: detected on head (hash 0x{:08X}), not via remake", hatOnHeadHash));
+		}
 		theHat.hatHash = hatOnHeadHash;
 		theHat.onHead = TRUE;
 	}
@@ -102,12 +206,14 @@ void Hat::WatchThatHat(int now) {
 		//Hat knocked off. Start tracking position.
 		Object droppedHat = PED::_GET_PED_LAST_DROPPED_HAT(player);
 		if (droppedHat && ENTITY::DOES_ENTITY_EXIST(droppedHat)) {
-			theHat.onHead = false;
+			theHat.onHead = FALSE;
 			theHat.hatHash = PED::_GET_SHOP_ITEM_HAT_COMPONENT(droppedHat, 0, FALSE);
 			SetHatPosition(droppedHat);
+			Log::Write(std::format("Hat: natural drop still tracked, handle {}", droppedHat));
 		}
-		
-
+		else if (!RemadeHatObjectExists() && now >= remakeNextAttemptAfter) {
+			StartRemakingHat(now);
+		}
 	}
 
 	Hat::Save();
