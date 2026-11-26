@@ -253,6 +253,8 @@ void Hat::WatchThatHat(int now) {
 		}
 		theHat.hatHash = hatOnHeadHash;
 		theHat.onHead = TRUE;
+		remadeHat = 0;
+		remadeHatBeingHeld = true;
 	}
 	else if (theHat.hatHash != 0) {
 		if (RemadeHatObjectExists()) {
