@@ -29,7 +29,7 @@ ModConfig LoadConfig()
 	if (ini.LoadFile(path.c_str()) < 0)
 		return cfg;
 
-	cfg.enableTextLogging = ini.GetBoolValue("Horse", "HIDE_THAT_HORSE", cfg.HideThatHorse);
+	cfg.HideThatHorse = ini.GetBoolValue("Horse", "HIDE_THAT_HORSE", cfg.HideThatHorse);
 	
 
 	return cfg;
