@@ -15,6 +15,10 @@ namespace {
 	constexpr int CATCH_TIMEOUT_MS = 250;
 	constexpr int REMAKE_RETRY_AFTER_MS = 1500;
 
+	constexpr float REMADE_HAT_HOLD_DISTANCE = 100.0f; // Hold and freeze the hat when beyond this distance so it can't get cleaned up. 
+	constexpr float REMADE_HAT_RELEASE_DISTANCE = 50.0f; // Unfreeze when we get close so it can be kicked and tumble again.
+	bool remadeHatBeingHeld = true;
+
 	int nextHatPeek = 0;
 	int remakeNextAttemptAfter = 0;
 
@@ -50,6 +54,7 @@ namespace {
 				continue;
 			}
 
+			// I guess these have to be passed in via reference or else the native returns a different hash.
 			BOOL statusFlag = FALSE;
 			Hash wearableState = 0;
 			return PED::_GET_SHOP_ITEM_COMPONENT_AT_INDEX(ped, i, FALSE, &statusFlag, &wearableState);
@@ -93,7 +98,7 @@ namespace {
 
 	void PlaceRemadeHat(Object hat) {
 		ENTITY::SET_ENTITY_AS_MISSION_ENTITY(hat, TRUE, FALSE);
-		ENTITY::SET_ENTITY_COORDS(hat, theHat.LostLocation.x, theHat.LostLocation.y, theHat.LostLocation.z + .05f, FALSE, FALSE, FALSE, FALSE);
+		ENTITY::SET_ENTITY_COORDS(hat, theHat.LostLocation.x, theHat.LostLocation.y, theHat.LostLocation.z, FALSE, FALSE, FALSE, FALSE);
 		ENTITY::SET_ENTITY_ROTATION(hat, theHat.LostRotation.x, theHat.LostRotation.y, theHat.LostRotation.z, 2, TRUE);
 		//Unfreeze later when player is close.
 		ENTITY::FREEZE_ENTITY_POSITION(hat, TRUE);
@@ -137,7 +142,34 @@ namespace {
 		}
 	}
 
+	int nextDistanceReportTime = 0;
+
+	void KeepRemadeHat(Ped player) {
+		Vector3 hatLoc = ENTITY::GET_ENTITY_COORDS(remadeHat, TRUE, FALSE);
+		Vector3 playerLoc = ENTITY::GET_ENTITY_COORDS(player, TRUE, FALSE);
+		float distance = MISC::GET_DISTANCE_BETWEEN_COORDS(playerLoc.x, playerLoc.y, playerLoc.z, hatLoc.x, hatLoc.y, hatLoc.z, TRUE);
+
+		if (MISC::GET_GAME_TIMER() > nextDistanceReportTime) {
+			Log::Write(std::format("Distance from hat: {:.2f}", distance));
+			nextDistanceReportTime = MISC::GET_GAME_TIMER() + 2000;
+		}
+
+		if (!remadeHatBeingHeld && distance > REMADE_HAT_HOLD_DISTANCE) {
+			ENTITY::SET_ENTITY_AS_MISSION_ENTITY(remadeHat, TRUE, FALSE);
+			ENTITY::FREEZE_ENTITY_POSITION(remadeHat, TRUE);
+			remadeHatBeingHeld = true;
+		}
+		else if (remadeHatBeingHeld && distance < REMADE_HAT_RELEASE_DISTANCE) {
+			ENTITY::FREEZE_ENTITY_POSITION(remadeHat, FALSE);
+			Object releasedHat = remadeHat;
+			ENTITY::SET_ENTITY_AS_NO_LONGER_NEEDED(&releasedHat);
+			remadeHatBeingHeld = false;
+		}
+
+	}
+
 }
+
 
 void Hat::Load() {
 	CSimpleIni ini;
@@ -203,16 +235,21 @@ void Hat::WatchThatHat(int now) {
 		theHat.onHead = TRUE;
 	}
 	else if (theHat.hatHash != 0) {
-		//Hat knocked off. Start tracking position.
-		Object droppedHat = PED::_GET_PED_LAST_DROPPED_HAT(player);
-		if (droppedHat && ENTITY::DOES_ENTITY_EXIST(droppedHat)) {
-			theHat.onHead = FALSE;
-			theHat.hatHash = PED::_GET_SHOP_ITEM_HAT_COMPONENT(droppedHat, 0, FALSE);
-			SetHatPosition(droppedHat);
-			Log::Write(std::format("Hat: natural drop still tracked, handle {}", droppedHat));
+		if (RemadeHatObjectExists()) {
+			KeepRemadeHat(player);
 		}
-		else if (!RemadeHatObjectExists() && now >= remakeNextAttemptAfter) {
-			StartRemakingHat(now);
+		else {
+			//Hat knocked off. Start tracking position.
+			Object droppedHat = PED::_GET_PED_LAST_DROPPED_HAT(player);
+			if (droppedHat && ENTITY::DOES_ENTITY_EXIST(droppedHat)) {
+				theHat.onHead = FALSE;
+				theHat.hatHash = PED::_GET_SHOP_ITEM_HAT_COMPONENT(droppedHat, 0, FALSE);
+				SetHatPosition(droppedHat);
+				Log::Write(std::format("Hat: natural drop still tracked, handle {}", droppedHat));
+			}
+			else if (!RemadeHatObjectExists() && now >= remakeNextAttemptAfter) {
+				StartRemakingHat(now);
+			}
 		}
 	}
 
