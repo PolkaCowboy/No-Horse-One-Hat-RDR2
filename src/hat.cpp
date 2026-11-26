@@ -5,7 +5,6 @@
 #include "ui.h"
 #include "../inc/SimpleIni.h"
 
-#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <format>
@@ -25,7 +24,6 @@ namespace {
 	int remakeNextAttemptAfter = 0;
 
 	Blip hatBlip = 0;
-	Vector3 hatBlipCoords{};
 
 	//Rebuild lost hats by equipping a new copy, bumping it off and moving it to the saved lost location.
 	enum class RemakeStep { Equip, KnockOff, Catch };
@@ -196,7 +194,6 @@ namespace {
 	Hash offeredCandidateHash = 0;
 
 	int acceptKeyHeldSince = 0;
-	int nextPromptTime = 0;
 
 	void OfferNewPrimaryHat(Hash candidateHash, int now) {
 		if (candidateHash != offeredCandidateHash) {
