@@ -11,6 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\hat.cpp" />
     <ClCompile Include="src\NHA.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\script.cpp" />
@@ -21,6 +22,7 @@
     <ClCompile Include="src\ui.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\hat.h" />
     <ClInclude Include="src\NHA.h" />
     <ClInclude Include="src\script.h" />
     <ClInclude Include="src\keyboard.h" />

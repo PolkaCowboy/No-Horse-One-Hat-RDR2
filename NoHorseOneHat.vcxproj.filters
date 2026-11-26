@@ -33,6 +33,9 @@
     <ClCompile Include="src\NHA.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\hat.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\script.h">
@@ -78,6 +81,9 @@
       <Filter>sdk</Filter>
     </ClInclude>
     <ClInclude Include="src\NHA.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hat.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

@@ -3,6 +3,7 @@
 #include "log.h"
 #include "config.h"
 #include "NHA.h";
+#include "Hat.h";
 
 #include <format>
 
@@ -20,6 +21,8 @@ namespace
 			NHA::HideThatHorse(now);
 			NHA::HideThatBlip();
 		}
+
+		Hat::WatchThatHat(now);
 	}
 }
 
@@ -32,6 +35,8 @@ void ScriptMain()
 		Log::Init();
 		Log::Write(std::format("ScriptMain started"));
 	}
+
+	Hat::Load();
 
 	while (true)
 	{
